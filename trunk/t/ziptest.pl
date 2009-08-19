@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 78;
+use Test::More tests => 80;
 use LWP::UserAgent;
 use Archive::Zip;
 
@@ -271,6 +271,7 @@ like($response->content,
 ### If-Range ###
 set_debug_log("if-range");
 
+# last-modified
 $response = $ua->get("$http_root/zip.txt",
     "If-Range" => "Wed, 15 Nov 1995 04:58:07 GMT",
     "Range" => "bytes=0-1");
@@ -280,3 +281,14 @@ $response = $ua->get("$http_root/zip.txt",
     "If-Range" => "Wed, 15 Nov 1995 04:58:08 GMT",
     "Range" => "bytes=0-1");
 is($response->code, 206, "206 Partial Content -- when If-Range is Last-Modified time");
+
+# etag
+$response = $ua->get("$http_root/zip.txt",
+    "If-Range" => "2.71828",
+    "Range" => "bytes=0-1");
+is($response->code, 200, "200 OK -- when If-Range is not ETag");
+
+$response = $ua->get("$http_root/zip.txt",
+    "If-Range" => "3.14159",
+    "Range" => "bytes=0-1");
+is($response->code, 206, "206 Partial Content -- when If-Range is ETag");
