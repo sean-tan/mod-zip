@@ -242,8 +242,7 @@ ngx_http_zip_subrequest_header_filter(ngx_http_request_t *r)
 
     ctx = ngx_http_get_module_ctx(r->main, ngx_http_zip_module);
     if (ctx != NULL) {
-        if (r->headers_out.status != NGX_HTTP_OK 
-                && r->headers_out.status != NGX_HTTP_PARTIAL_CONTENT) {
+        if (r->headers_out.status != NGX_HTTP_OK) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                     "mod_zip: a subrequest returned %d, aborting...",
                     r->headers_out.status);
@@ -260,6 +259,8 @@ ngx_http_zip_subrequest_header_filter(ngx_http_request_t *r)
 static ngx_int_t
 ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
 {
+    time_t if_range, last_modified;
+
     if (ngx_http_zip_add_cache_control(r) == NGX_ERROR) {
         return NGX_ERROR;
     }
@@ -267,7 +268,6 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
     r->headers_out.content_type.len = sizeof(NGX_ZIP_MIME_TYPE) - 1;
     r->headers_out.content_type.data = (u_char *)NGX_ZIP_MIME_TYPE;
     ngx_http_clear_content_length(r);
-    ngx_http_clear_last_modified(r);
 
     if (ctx->missing_crc32) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -277,13 +277,51 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
     r->headers_out.content_length_n = ctx->archive_size;
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
             "mod_zip: Archive will be %O bytes", ctx->archive_size);
-    if (r->headers_in.range && !r->headers_in.if_range) {
+    if (r->headers_in.range) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                 "mod_zip: Range found");
         if (ctx->missing_crc32) {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                     "mod_zip: Missing checksums, ignoring Range");
             return NGX_OK;
+        }
+        if (r->headers_in.if_range) {
+            if (r->upstream != NULL) {
+                if_range = ngx_http_parse_time(r->headers_in.if_range->value.data,
+                        r->headers_in.if_range->value.len);
+                if (if_range == NGX_ERROR) { /* treat as ETag */
+                    if (r->upstream->headers_in.etag != NULL) {
+                        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                                "mod_zip: If-Range = %V, ETag = %V", 
+                                &r->headers_in.if_range->value, &r->upstream->headers_in.etag->value);
+                        if (r->upstream->headers_in.etag->value.len != r->headers_in.if_range->value.len) {
+                            return NGX_OK;
+                        }
+                        if (ngx_strncmp(r->upstream->headers_in.etag->value.data,
+                                    r->headers_in.if_range->value.data,
+                                    r->headers_in.if_range->value.len)) {
+                            return NGX_OK;
+                        }
+                    } else {
+                        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                                "mod_zip: No ETag from upstream");
+                        return NGX_OK;
+                    }
+                } else { /* treat as modification time */
+                    if (r->upstream->headers_in.last_modified != NULL) {
+                        last_modified = ngx_http_parse_time(r->upstream->headers_in.last_modified->value.data,
+                                r->upstream->headers_in.last_modified->value.len);
+                        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                                "mod_zip: If-Range = %d, Last-Modified = %d", 
+                                if_range, last_modified);
+                        if (if_range != last_modified && last_modified != -1) {
+                            return NGX_OK;
+                        }
+                    } else {
+                        return NGX_OK;
+                    }
+                }
+            }
         }
         if (ngx_http_zip_parse_range(r, &r->headers_in.range->value, ctx) 
                 == NGX_ERROR) {
