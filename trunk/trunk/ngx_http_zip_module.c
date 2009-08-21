@@ -285,41 +285,39 @@ ngx_http_zip_set_headers(ngx_http_request_t *r, ngx_http_zip_ctx_t *ctx)
                     "mod_zip: Missing checksums, ignoring Range");
             return NGX_OK;
         }
-        if (r->headers_in.if_range) {
-            if (r->upstream != NULL) {
-                if_range = ngx_http_parse_time(r->headers_in.if_range->value.data,
-                        r->headers_in.if_range->value.len);
-                if (if_range == NGX_ERROR) { /* treat as ETag */
-                    if (r->upstream->headers_in.etag != NULL) {
-                        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                                "mod_zip: If-Range = %V, ETag = %V", 
-                                &r->headers_in.if_range->value, &r->upstream->headers_in.etag->value);
-                        if (r->upstream->headers_in.etag->value.len != r->headers_in.if_range->value.len) {
-                            return NGX_OK;
-                        }
-                        if (ngx_strncmp(r->upstream->headers_in.etag->value.data,
-                                    r->headers_in.if_range->value.data,
-                                    r->headers_in.if_range->value.len)) {
-                            return NGX_OK;
-                        }
-                    } else {
-                        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                                "mod_zip: No ETag from upstream");
+        if (r->headers_in.if_range && r->upstream) {
+            if_range = ngx_http_parse_time(r->headers_in.if_range->value.data,
+                    r->headers_in.if_range->value.len);
+            if (if_range == NGX_ERROR) { /* treat as ETag */
+                if (r->upstream->headers_in.etag) {
+                    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                            "mod_zip: If-Range = %V, ETag = %V", 
+                            &r->headers_in.if_range->value, &r->upstream->headers_in.etag->value);
+                    if (r->upstream->headers_in.etag->value.len != r->headers_in.if_range->value.len
+                            || ngx_strncmp(r->upstream->headers_in.etag->value.data,
+                                r->headers_in.if_range->value.data,
+                                r->headers_in.if_range->value.len)) {
                         return NGX_OK;
                     }
-                } else { /* treat as modification time */
-                    if (r->upstream->headers_in.last_modified != NULL) {
-                        last_modified = ngx_http_parse_time(r->upstream->headers_in.last_modified->value.data,
-                                r->upstream->headers_in.last_modified->value.len);
-                        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                                "mod_zip: If-Range = %d, Last-Modified = %d", 
-                                if_range, last_modified);
-                        if (if_range != last_modified && last_modified != -1) {
-                            return NGX_OK;
-                        }
-                    } else {
+                } else {
+                    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                            "mod_zip: No ETag from upstream");
+                    return NGX_OK;
+                }
+            } else { /* treat as modification time */
+                if (r->upstream->headers_in.last_modified) {
+                    last_modified = ngx_http_parse_time(r->upstream->headers_in.last_modified->value.data,
+                            r->upstream->headers_in.last_modified->value.len);
+                    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                            "mod_zip: If-Range = %d, Last-Modified = %d", 
+                            if_range, last_modified);
+                    if (if_range != last_modified && last_modified != -1) {
                         return NGX_OK;
                     }
+                } else {
+                    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                            "mod_zip: No Last-Modified from upstream");
+                    return NGX_OK;
                 }
             }
         }
