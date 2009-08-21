@@ -105,7 +105,7 @@ set_debug_log("basic-zip");
 $response = $ua->get("$http_root/zip-missing-crc.txt");
 is($response->code, 200, "Returns OK with missing CRC");
 like($response->header("Content-Length"), qr/^\d+$/, "Content-Length header when missing CRC");
-is($response->header("Accept-Ranges"), undef, "No Accept-Ranges header when missing CRC");
+is($response->header("Accept-Ranges"), undef, "No Accept-Ranges header when missing CRC (fails with nginx 0.7.44 - 0.8.6)");
 
 $zip = test_zip_archive($response->content, "when missing CRC");
 is($zip->memberNamed("file1.txt")->hasDataDescriptor(), 8, "Has data descriptor when missing CRC");
@@ -291,4 +291,4 @@ is($response->code, 200, "200 OK -- when If-Range is not ETag");
 $response = $ua->get("$http_root/zip.txt",
     "If-Range" => "3.14159",
     "Range" => "bytes=0-1");
-is($response->code, 206, "206 Partial Content -- when If-Range is ETag");
+is($response->code, 206, "206 Partial Content -- when If-Range is ETag (requires nginx-0.8.9-etag.patch)");

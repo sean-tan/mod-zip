@@ -1,5 +1,9 @@
 Changes with mod_zip 1.1.5                                       13 Aug 2009
 
+    *) Feature: "If-Range" client header is compared to "Last-Modified" and
+       "ETag" from the upstream file-list server; if there is a match, the
+       "Range" client header is honored, otherwise 200 OK is returned.
+
     *) Bugfix: compatibility with nginx 0.7.25 and later (but earlier
        versions are no longer supported)
 
