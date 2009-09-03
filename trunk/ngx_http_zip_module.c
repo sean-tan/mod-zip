@@ -424,8 +424,9 @@ ngx_http_zip_subrequest_range(ngx_http_request_t *r, ngx_chain_t *in,
 
         sr_ctx->subrequest_pos = last;
 
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "mod_zip: Buffer range %O-%O Request range %O-%O", start, last, range->start, range->end);
+        ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "mod_zip: Buffer range %O-%O Request range %O-%O", 
+                       start, last, range->start, range->end);
 
         if (range->end <= start || range->start >= last) {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
