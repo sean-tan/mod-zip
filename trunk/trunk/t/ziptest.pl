@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# TODO tests for Zip64
+
 use Test::More tests => 80;
 use LWP::UserAgent;
 use Archive::Zip;
@@ -291,4 +293,4 @@ is($response->code, 200, "200 OK -- when If-Range is not ETag");
 $response = $ua->get("$http_root/zip.txt",
     "If-Range" => "3.14159",
     "Range" => "bytes=0-1");
-is($response->code, 206, "206 Partial Content -- when If-Range is ETag (requires nginx-0.8.9-etag.patch)");
+is($response->code, 206, "206 Partial Content -- when If-Range is ETag (requires nginx 0.8.10+ or nginx-0.8.9-etag.patch)");

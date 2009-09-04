@@ -1,4 +1,4 @@
-/* Parser definitions for mod_zip */
+/* Ragel Parser definitions for mod_zip64 */
 
 #include "ngx_http_zip_module.h"
 #include "ngx_http_zip_parsers.h"
@@ -20,6 +20,10 @@ ngx_http_zip_file_init(ngx_http_zip_file_t *parsing_file)
 
     parsing_file->crc32 = 0;
     parsing_file->size = 0;
+
+    parsing_file->missing_crc32 = 0;
+    parsing_file->need_zip64 = 0;
+    parsing_file->need_zip64_offset = 0;
 }
 
 static ngx_int_t
@@ -92,6 +96,8 @@ ngx_http_zip_parse_request(ngx_http_zip_ctx_t *ctx)
         action crc_incr {
             if (fc == '-') {
                 ctx->missing_crc32 = 1;
+                parsing_file->missing_crc32 = 1;
+                parsing_file->crc32 = 0xffffffff;
             } else {
                 parsing_file->crc32 *= 16;
                 if (fc >= 'a' && fc <= 'f') {
